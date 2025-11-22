@@ -1,6 +1,6 @@
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const bodyParser = require('body-parser');
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import bodyParser from 'body-parser';
 
 const app = express();
 app.use(bodyParser.json());
