@@ -3,9 +3,20 @@ import jwt from 'jsonwebtoken';
 import bodyParser from 'body-parser';
 
 const app = express();
+
+/* Express.js でよく使われるミドルウェア
+  app.use(bodyParser.json());              // Content-Type: application/json 用
+  app.use(bodyParser.urlencoded({ ... })); // Content-Type: application/x-www-form-urlencoded 用
+  app.use(bodyParser.raw());               // Content-Type: application/octet-stream 用
+  app.use(bodyParser.text());              // Content-Type: text/plain 用
+*/
 app.use(bodyParser.json());
 
+
 // シークレットキー（本番では環境変数に保存）
+  // この鍵を知っている人だけが:
+  // ✅ 有効なトークンを生成できる
+  // ✅ トークンの署名を検証できる
 const SECRET_KEY = 'my-secret-key-12345';
 
 // ユーザーデータ（本来はデータベース）
@@ -98,6 +109,11 @@ app.get('/basic-auth', (req, res) => {
       そのバイト配列をBase64でエンコードすることで、すべて印刷可能なASCII文字だけで表現でき、
       HTTPヘッダーで安全に送れるようになる」
 
+      用途例:
+        - HTTP Basic認証 (Authorizationヘッダー)
+        - メールの添付ファイル (MIMEエンコード)
+        - URLパラメータでバイナリデータを送る場合
+
     * 印刷可能(Printable)とは?
       「画面に表示できる、目に見える文字」という意味。
 
@@ -145,6 +161,17 @@ app.get('/basic-auth', (req, res) => {
       - バイナリデータや0x7F以上のバイトは直接送れない
       - そのため、バイナリや特殊文字をヘッダーで送る場合はBase64エンコードが必要
 
+    * Binary(バイナリ)
+      バイナリ = 2進数で表現されたデータ。0と1の組み合わせ(2進数)で表現されます。
+
+    * Byte(バイト)
+      1 byte = 8bit(ビット)の集まり で、8桁の２進数、つまり256通り(0〜255)の値を表現できます。
+
+    まとめ:
+      - binary: 2進数で表現されたデータ全般を指す用語
+      - byte: 8bit(8桁の2進数)で構成されるデータの単位。0〜255の値を表現可能
+      - binaryは広義、byteはその中の具体的な単位
+
     * Base64デコードの具体的な処理
       * 1. authHeader.split(' ')[1] : Base64部分を抽出！
           authHeaderの中身 → "Basic dGVzdHVzZXI6dGVzdHBhc3M="
@@ -191,25 +218,103 @@ app.get('/basic-auth', (req, res) => {
     }
 });
 
+
+/* NOTE: Bearer認証について
+  Bearer認証は、HTTPヘッダーのAuthorizationフィールドに
+  "Bearer <token>" という形式でトークンを送信する認証方式です。
+
+  * Basic・Bearer認証の比較
+
+    ===== Basic認証 =====
+    毎回のリクエストで username と password を送信
+
+    Basic認証の問題点:
+      ❌ 毎回パスワードを送信 → セキュリティリスク
+      ❌ パスワードが盗聴されるリスク
+      ❌ サーバー側で毎回データベース照合が必要 → パフォーマンス低下
+
+    ===== Bearer認証 =====
+      1. ログイン時のみ username と password を送信
+      POST /login
+      Body: { "username": "testuser", "password": "testpass" }
+
+      2. サーバーがトークンを発行
+      Response: { "token": "eyJhbGciOiJIUzI1NiIs..." }
+
+      3. 以降のリクエストではトークンのみ送信
+      Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+                            ↑ パスワードではなく、トークン
+
+      メリット:
+      ✅ パスワードを毎回送信しない → セキュリティ向上
+      ✅ トークンには有効期限がある → 盗まれても被害を限定
+      ✅ サーバー側でデータベース照合不要 → パフォーマンス向上
+      ✅ トークン自体に情報を含められる → ステートレス
+
+
+    * token の主要な役割
+      - 認証情報の伝達: クライアントがサーバーに対して自分が認証済みであることを示す
+      - セッション管理(情報の保持): サーバー側でセッション情報を保持せずに、クライアント側で状態を管理できる
+      - アクセス制御: トークンに含まれる情報に基づいて、アクセス権限を制御できる
+      - セキュリティ強化: パスワードを毎回送信しないため、盗聴リスクを低減できる
+
+    * JWT (JSON Web Token) とは？
+      JWTは、JSON形式で表現された情報を安全に伝達するためのコンパクトなトークンフォーマットです。
+      主に認証と情報交換に使用されます。
+
+      - 構造:
+        JWTは3つの部分から構成され、それぞれがBase64Urlエンコードされています:
+
+        [Header].[Payload].[Signature] → これらをドット(.)で連結したものがJWTトークン
+
+        1. ヘッダー (Header): トークンのタイプと署名アルゴリズムを指定
+        2. ペイロード (Payload): ユーザー情報やクレーム(権利情報)を含む
+        3. 署名 (Signature): ヘッダーとペイロードの整合性を検証するための署名
+
+        例) eyJhbGciOiJIUzI1NJ9.eyJ1c2VySWQiOjEsInVHVzZzMjQzNTYwMH0.4Hb-1pVlGvK2NqP8Rs
+*/
+
+
 // ===== ログインエンドポイント（トークン発行） =====
+// * HTTP POST method を Endpoint: /login に実装.
 app.post('/login', (req, res) => {
+ // ===== ログインエンドポイント（トークン発行） =====
+// * HTTP POST method を Endpoint: /login に実装.
+app.post('/login', (req, res) => {
+  // リクエストボディから username と password を取得
+  // bodyParser.json()が自動処理: JSON形式のリクエストボディをパースして req.body にセット
+
+  /* 分割代入(Destructuring Assignment) で取得
+    ===== req.body の中身(例) =====
+    req.body = {
+        username: "testuser",
+        password: "testpass"
+    };
+    ===== 分割代入を使わない書き方 =====
+    const username = req.body["username"];
+    const password = req.body["password"];
+    あるいは:
+    const username = req.body.username;
+    const password = req.body.password;
+    */
     const { username, password } = req.body;
-    
+
     // ユーザー検証
     const user = users.find(u => u.username === username && u.password === password);
-    
+
     if (!user) {
         return res.status(401).json({ error: 'Invalid username or password' });
     }
-    
+
     // JWTトークン生成（有効期限1時間）
     const token = jwt.sign(
-        { userId: user.id, username: user.username },
-        SECRET_KEY,
-        { expiresIn: '1h' }
+        { userId: user.id, username: user.username },   // Payloacd部分
+        SECRET_KEY,                                     // 署名用シークレットキー(秘密鍵)
+        { expiresIn: '1h' }                             // オプション: 有効期限1時間
     );
-    
-    res.json({ 
+
+    // レスポンスにトークンを含めて返す
+    res.json({
         token: token,
         user: {
             id: user.id,
@@ -218,6 +323,31 @@ app.post('/login', (req, res) => {
         message: 'ログイン成功！トークンを発行しました'
     });
 });
+
+    // ユーザー検証
+    const user = users.find(u => u.username === username && u.password === password);
+
+    if (!user) {
+        return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    // JWTトークン生成（有効期限1時間）
+    const token = jwt.sign(
+        { userId: user.id, username: user.username },
+        SECRET_KEY,
+        { expiresIn: '1h' }
+    );
+
+    res.json({
+        token: token,
+        user: {
+            id: user.id,
+            username: user.username
+        },
+        message: 'ログイン成功！トークンを発行しました'
+    });
+});
+
 
 // ===== Bearer認証のエンドポイント =====
 app.get('/protected', (req, res) => {
