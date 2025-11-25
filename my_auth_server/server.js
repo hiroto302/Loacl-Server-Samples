@@ -276,8 +276,6 @@ app.get('/basic-auth', (req, res) => {
 
 
 // ===== ログインエンドポイント（トークン発行） =====
-// * HTTP POST method を Endpoint: /login に実装.
-app.post('/login', (req, res) => {
  // ===== ログインエンドポイント（トークン発行） =====
 // * HTTP POST method を Endpoint: /login に実装.
 app.post('/login', (req, res) => {
@@ -324,52 +322,46 @@ app.post('/login', (req, res) => {
     });
 });
 
-    // ユーザー検証
-    const user = users.find(u => u.username === username && u.password === password);
 
-    if (!user) {
-        return res.status(401).json({ error: 'Invalid username or password' });
-    }
-
-    // JWTトークン生成（有効期限1時間）
-    const token = jwt.sign(
-        { userId: user.id, username: user.username },
-        SECRET_KEY,
-        { expiresIn: '1h' }
-    );
-
-    res.json({
-        token: token,
-        user: {
-            id: user.id,
-            username: user.username
-        },
-        message: 'ログイン成功！トークンを発行しました'
-    });
-});
-
-
-// ===== Bearer認証のエンドポイント =====
+// ===== Bearer認証のエンドポイント (トークン検証)=====
+// * HTTP GET method を Endpoint: /protected に実装.
 app.get('/protected', (req, res) => {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Token required' });
     }
-    
+
     const token = authHeader.split(' ')[1];
-    
+
     try {
+        /* JWT.verify() メソッドの詳細
+          * トークン検証の仕組み
+            * 署名の検証
+              トークンがSECRET_KEYで正しく署名されているか
+              改ざんされていないか
+            * 有効期限のチェック
+              ログイン時に設定したexpiresIn: '1h'が切れていないか
+            * トークンの構造
+              JWT形式として正しいか
+        */
         // トークン検証
         const decoded = jwt.verify(token, SECRET_KEY);
-        
-        res.json({ 
+
+        /* decoded の中身例
+          検証が成功すると、トークン内のPayloadデータ(ユーザー情報)が取り出せる
+          これを使ってレスポンスを返す。
+        */
+
+        // トークンが有効な場合、保護されたリソースにアクセスを許可
+        res.json({
             authenticated: true,
             user: decoded,
             message: 'Bearer認証成功！保護されたデータにアクセスできました',
             secretData: 'これは認証されたユーザーだけが見れるデータです'
         });
     } catch (error) {
+        // トークン検証が失敗した場合
         res.status(401).json({ error: 'Invalid or expired token' });
     }
 });
