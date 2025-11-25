@@ -1,4 +1,16 @@
-## 初期セットアップ手順  (既存のものを使用する場合はskp)
+# 概要
+こちらは、HTTP Methodの検証を作成するための、Server側の実装を行います。
+簡易的な最初のサンプルです。
+こちらで学べる内容については、同ディレクトリの[LEARNING_SUMMARY](https://github.com/hiroto302/Loacl-Server-Samples/blob/main/my_auth_server/LEARNING_SUMMARY.md)を参照してください。
+
+## 関連プロジェクト
+- **Client側実装**: [Unity HTTP Sample](https://github.com/hiroto302/Unity_LTS2021_3D/tree/master/Assets/Scripts/UnityWebRequest) を参照してください
+  - このサーバーと連携して動作するUnityクライアントの実装例
+    - UnityWebRequest Scene
+    - Sample_4_BasicAuth.cs & Sample_5_BearAuth.cs
+
+
+## 初期セットアップ手順
 ###  適当なフォルダーを作成
 ```
 mkdir my_auth_server
@@ -6,7 +18,7 @@ cd my_auth_server
 ```
 
 ### 初期化
-プロジェクトを初期化して package.json を作成。
+プロジェクトを初期化してpackage.jsonを作成。
 デフォルト設定で作成。
 ```
 npm init -y
@@ -16,9 +28,9 @@ npm init -y
 ```
 npm install express jsonwebtoken body-parser
 ```
-
 ### サーバー側の実装
 server.jsを実装
+
 
 ## 初期セットアップ済み以降
 ### サーバ起動
@@ -66,7 +78,7 @@ const decoded = jwt.verify(token, 'secret-key');
 ```
 
 ### body-parser
-HTTPリクエストのボディ(本文)を解析してくれるミドルウェアです。JSONデータを受け取る時に使います。req.bodyからJSONデータを取得できたします。
+HTTPリクエストのボディ（本文）を解析してくれるミドルウェアです。JSONデータを受け取る時に使います。req.bodyからJSONデータを取得できたします。
 ```javascript:
 app.use(bodyParser.json());
 ```
@@ -79,4 +91,5 @@ app.post('/login', (req, res) => {
     console.log(req.body);  // { username: "testuser", password: "testpass" }
 });
 ```
-補足: 最近のExpressでは express.json() で代替できるため、body-parserは省略可能です。
+補足: 最近のExpressでは、express.json()で代替できるため、body-parserは省略可能です。
+
