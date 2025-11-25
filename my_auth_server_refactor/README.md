@@ -121,3 +121,50 @@ After: Express標準のパーサー (express.json()) に置き換え、依存関
 旧: http://localhost:3000/user/profile
 
 新: http://localhost:3000/user/profile (変更なし、構成上 /user 配下に配置)
+
+<br></br>
+
+# サーバー処理フロー解説 (Server Process Flow)
+
+`node server.js` コマンド実行後のサーバー内部の挙動と、リクエスト処理の流れ（メンタルモデル）についての解説です。
+
+## 🔄 処理の詳細フロー
+
+### 1. 起動シーケンス (Startup Sequence)
+コマンド `node server.js` を実行した直後の処理です。
+
+1.  **Bootstrap**: Node.js が `server.js` を読み込む。
+2.  **Configuration**: 環境変数 (`.env`) を読み込み、設定値を確定させる。
+3.  **Initialization**: `app.js` が読み込まれ、ミドルウェア設定とルーティング定義（`routes`）がメモリ上に展開される。
+4.  **Listening**: `app.listen()` が実行され、指定ポートで HTTP リクエストの待受状態（イベントループ）に入る。
+    * *これ以降、サーバーは終了せず、リクエストが来るたびに反応します。*
+
+### 2. 保護リソースへのアクセス (Protected Resource Flow) の例
+**URL**: `GET /user/protected` (要 Bearer Token)
+```mermaid
+  User (Client)
+    │
+    │ Request + Token
+    ▼
+  App (app.js)
+    │
+    │ Route Match
+    ▼
+  UserRoute (userRoutes.js)
+    │
+    │ Check!
+    ▼
+  Guard (authMiddleware) ─── Invalid? ──▶ [ 403 Forbidden ]
+    │
+    │ Valid?
+    ▼
+  OK (Next)
+    │
+    │ Call
+    ▼
+  UserCtrl (userController.getProtectedData)
+    │
+    │ Response
+    ▼
+  User (Client)
+```
